@@ -1,0 +1,3 @@
+# Built inside a Linux container: keep LF everywhere.
+* text=auto eol=lf
+*.png binary

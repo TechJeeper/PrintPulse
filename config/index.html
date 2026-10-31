@@ -1,0 +1,630 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>PrintPulse settings</title>
+<style>
+:root {
+  --bg: #f2f3f7;
+  --surface: #ffffff;
+  --field: #f4f5f8;
+  --text: #0f1218;
+  --muted: #6b7280;
+  --line: rgba(15, 18, 24, 0.08);
+  --accent: #0a8fe0;
+  --accent-ink: #ffffff;
+  --ok: #16a34a;
+  --warn: #c2410c;
+  --bad: #dc2626;
+  --shadow: 0 1px 2px rgba(15, 18, 24, 0.04), 0 10px 30px rgba(15, 18, 24, 0.06);
+  --klipper: #ff5555;
+  --bambu: #00aa55;
+  --prusa: #ff5500;
+  color-scheme: light dark;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #0a0c11;
+    --surface: #151922;
+    --field: #1d2230;
+    --text: #f3f4f6;
+    --muted: #98a2b3;
+    --line: rgba(255, 255, 255, 0.08);
+    --accent: #33b1ff;
+    --accent-ink: #001726;
+    --ok: #34d399;
+    --warn: #fb923c;
+    --bad: #f87171;
+    --shadow: none;
+  }
+}
+* { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+html, body { margin: 0; background: var(--bg); color: var(--text); }
+body {
+  font: 16px/1.4 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, system-ui, sans-serif;
+  padding: env(safe-area-inset-top) 0 calc(96px + env(safe-area-inset-bottom));
+}
+.wrap { max-width: 560px; margin: 0 auto; padding: 0 16px; }
+button { font: inherit; color: inherit; border: 0; background: none; cursor: pointer; }
+.hero { display: flex; align-items: center; gap: 14px; padding: 28px 4px 18px; }
+.hero h1 { margin: 0; font-size: 26px; letter-spacing: -0.02em; }
+.hero p { margin: 2px 0 0; color: var(--muted); font-size: 15px; }
+.logo { flex: none; width: 56px; height: 56px; border-radius: 16px; background: #0b0f1a; display: grid; place-items: center; }
+.section-head { display: flex; align-items: baseline; justify-content: space-between; margin: 22px 4px 10px; }
+h2 { margin: 0; font-size: 13px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted); }
+.count { font-size: 13px; color: var(--muted); }
+.card {
+  width: 100%; display: flex; align-items: center; gap: 14px; text-align: left;
+  background: var(--surface); border-radius: 18px; padding: 14px 16px; margin-bottom: 10px;
+  box-shadow: var(--shadow); border: 1px solid var(--line);
+}
+.badge {
+  flex: none; width: 40px; height: 40px; border-radius: 12px; display: grid; place-items: center;
+  color: #fff; font-weight: 700; font-size: 18px;
+}
+.card-body { flex: 1; min-width: 0; }
+.card-title { font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.card-sub { color: var(--muted); font-size: 14px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.status { display: flex; align-items: center; gap: 6px; font-size: 13px; margin-top: 4px; color: var(--muted); }
+.status b { font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.dot { flex: none; width: 8px; height: 8px; border-radius: 50%; background: var(--muted); }
+.ok .dot { background: var(--ok); }
+.bad .dot { background: var(--bad); }
+.bad b { color: var(--bad); }
+.warn .dot { background: var(--warn); }
+.warn b { color: var(--warn); }
+.chev { color: var(--muted); font-size: 22px; }
+.empty {
+  background: var(--surface); border: 1px dashed var(--line); border-radius: 18px; padding: 22px 18px;
+  text-align: center; color: var(--muted); margin-bottom: 10px;
+}
+.add {
+  width: 100%; padding: 15px; border-radius: 16px; font-weight: 600; color: var(--accent);
+  background: rgba(10, 143, 224, 0.12); border: 1px solid rgba(10, 143, 224, 0.25);
+  background: color-mix(in srgb, var(--accent) 12%, transparent); border: 1px solid color-mix(in srgb, var(--accent) 25%, transparent);
+}
+.add:disabled { opacity: 0.4; }
+.group { background: var(--surface); border-radius: 18px; border: 1px solid var(--line); box-shadow: var(--shadow); overflow: hidden; }
+.row { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 14px 16px; }
+.row + .row { border-top: 1px solid var(--line); }
+.row-text { flex: 1; min-width: 0; }
+.row-text small { display: block; color: var(--muted); font-size: 13px; margin-top: 2px; }
+.seg { display: inline-flex; background: var(--field); border-radius: 11px; padding: 3px; gap: 2px; flex: none; }
+.seg button { padding: 7px 11px; border-radius: 8px; font-size: 14px; color: var(--muted); white-space: nowrap; }
+.seg button.on { background: var(--surface); color: var(--text); font-weight: 600; box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12); }
+.seg.full { display: flex; width: 100%; }
+.seg.full button { flex: 1; }
+.switch { position: relative; flex: none; width: 50px; height: 30px; }
+.switch input { opacity: 0; width: 0; height: 0; position: absolute; }
+.switch span { position: absolute; inset: 0; border-radius: 30px; background: var(--field); border: 1px solid var(--line); transition: 0.2s; }
+.switch span::after {
+  content: ""; position: absolute; width: 24px; height: 24px; left: 2px; top: 2px; border-radius: 50%;
+  background: #fff; box-shadow: 0 1px 3px rgba(0, 0, 0, 0.25); transition: 0.2s;
+}
+.switch input:checked + span { background: var(--ok); border-color: transparent; }
+.switch input:checked + span::after { transform: translateX(20px); }
+.note { color: var(--muted); font-size: 13px; margin: 14px 6px 0; }
+.savebar {
+  position: fixed; left: 0; right: 0; bottom: 0; padding: 12px 16px calc(12px + env(safe-area-inset-bottom));
+  background: var(--bg);
+  background: color-mix(in srgb, var(--bg) 82%, transparent); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
+  border-top: 1px solid var(--line);
+}
+.savebar .wrap { padding: 0; display: flex; align-items: center; gap: 12px; }
+.savebar small { flex: 1; color: var(--muted); font-size: 13px; }
+.primary {
+  padding: 14px 22px; border-radius: 14px; background: var(--accent); color: var(--accent-ink); font-weight: 650;
+}
+.primary.wide { width: 100%; }
+/* sheet */
+.sheet { position: fixed; inset: 0; z-index: 10; display: none; }
+.sheet.open { display: block; }
+.scrim { position: absolute; inset: 0; background: rgba(0, 0, 0, 0.45); animation: fade 0.2s; }
+.panel {
+  position: absolute; left: 0; right: 0; bottom: 0; max-height: 94vh; overflow: auto;
+  background: var(--bg); border-radius: 22px 22px 0 0; animation: rise 0.25s ease-out;
+  padding-bottom: calc(24px + env(safe-area-inset-bottom));
+}
+@keyframes rise { from { transform: translateY(40px); opacity: 0; } }
+@keyframes fade { from { opacity: 0; } }
+.panel-head {
+  position: sticky; top: 0; z-index: 1; display: flex; align-items: center; justify-content: space-between;
+  padding: 14px 16px; background: var(--bg); border-bottom: 1px solid var(--line);
+}
+.panel-head h3 { margin: 0; font-size: 17px; }
+.link { color: var(--accent); font-weight: 500; padding: 4px 2px; }
+.link.strong { font-weight: 650; }
+.panel-body { max-width: 560px; margin: 0 auto; padding: 8px 16px; }
+.tile {
+  width: 100%; display: flex; align-items: center; gap: 14px; text-align: left; padding: 16px;
+  margin-top: 10px; background: var(--surface); border: 1px solid var(--line); border-radius: 18px; box-shadow: var(--shadow);
+}
+.tile .badge { width: 48px; height: 48px; font-size: 22px; border-radius: 14px; }
+.tile strong { display: block; font-size: 17px; }
+.tile span.blurb { color: var(--muted); font-size: 14px; }
+label.field { display: block; margin-top: 16px; }
+label.field > span { display: block; font-size: 14px; font-weight: 600; margin: 0 4px 6px; }
+input[type=text], input[type=password], input[type=email], input[type=url] {
+  width: 100%; padding: 13px 14px; border-radius: 12px; border: 1px solid var(--line); background: var(--surface);
+  color: var(--text); font: inherit; outline: none;
+}
+input:focus { border-color: var(--accent); box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 25%, transparent); }
+.hint { display: block; color: var(--muted); font-size: 13px; margin: 6px 4px 0; }
+.saved { display: flex; align-items: center; justify-content: space-between; margin: 6px 4px 0; font-size: 13px; color: var(--ok); }
+.saved button { color: var(--bad); font-size: 13px; }
+.callout { border-radius: 14px; padding: 12px 14px; margin-top: 16px; font-size: 14px; }
+.callout.info { background: rgba(10, 143, 224, 0.12); background: color-mix(in srgb, var(--accent) 12%, transparent); }
+.callout.warn { background: rgba(194, 65, 12, 0.14); background: color-mix(in srgb, var(--warn) 14%, transparent); }
+.callout.ok { background: rgba(22, 163, 74, 0.14); background: color-mix(in srgb, var(--ok) 14%, transparent); display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.err { color: var(--bad); font-size: 13px; margin: 6px 4px 0; display: none; }
+.err.show { display: block; }
+details { margin-top: 16px; }
+summary { color: var(--accent); font-size: 14px; cursor: pointer; margin: 0 4px; }
+.devices { margin-top: 18px; }
+.devices h4 { margin: 0 4px 8px; font-size: 14px; }
+.actions { display: flex; gap: 10px; margin-top: 26px; }
+.actions button { flex: 1; padding: 13px; border-radius: 14px; background: var(--surface); border: 1px solid var(--line); font-weight: 600; }
+.actions .danger { color: var(--bad); }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="hero">
+    <div class="logo" aria-hidden="true">
+      <svg width="40" height="40" viewBox="0 0 40 40">
+        <circle cx="20" cy="20" r="15" fill="none" stroke="#2a3245" stroke-width="5"/>
+        <circle cx="20" cy="20" r="15" fill="none" stroke="#00aaff" stroke-width="5" stroke-linecap="round"
+                stroke-dasharray="66 95" transform="rotate(-90 20 20)"/>
+        <circle cx="5.6" cy="24.5" r="2.5" fill="#00ff55"/>
+      </svg>
+    </div>
+    <div>
+      <h1>PrintPulse</h1>
+      <p>Your 3D printers, on your wrist.</p>
+    </div>
+  </header>
+
+  <div class="section-head"><h2>Printers</h2><span class="count" id="count"></span></div>
+  <div id="list"></div>
+  <button class="add" id="add" type="button">+ Add printer</button>
+
+  <div class="section-head"><h2>Watch</h2></div>
+  <div class="group">
+    <div class="row">
+      <div class="row-text">Refresh every<small>While PrintPulse is open on your watch</small></div>
+      <div class="seg" id="interval"></div>
+    </div>
+    <div class="row">
+      <div class="row-text">Theme</div>
+      <div class="seg" id="theme"></div>
+    </div>
+    <div class="row">
+      <div class="row-text">Buzz on finish or failure</div>
+      <label class="switch"><input type="checkbox" id="vibe"><span></span></label>
+    </div>
+    <div class="row">
+      <div class="row-text">Check back when a print is due
+        <small>PrintPulse briefly opens on your watch at the expected finish time, so it can tell you when the print is done.</small>
+      </div>
+      <label class="switch"><input type="checkbox" id="wake"><span></span></label>
+    </div>
+    <div class="row">
+      <div class="row-text">Show demo printers<small>Try the app without connecting a printer.</small></div>
+      <label class="switch"><input type="checkbox" id="demo"><span></span></label>
+    </div>
+  </div>
+  <p class="note">Your phone talks to your printers directly. Klipper, Prusa and Bambu LAN bridges must be on the same network as your phone (or reachable over your VPN). Passwords and keys stay on your phone.</p>
+</div>
+
+<div class="savebar">
+  <div class="wrap">
+    <small id="dirty">Nothing changed yet</small>
+    <button class="primary" id="save" type="button">Save to watch</button>
+  </div>
+</div>
+
+<div class="sheet" id="sheet">
+  <div class="scrim" id="scrim"></div>
+  <div class="panel">
+    <div class="panel-head">
+      <button class="link" id="sheet-cancel" type="button">Cancel</button>
+      <h3 id="sheet-title">Add printer</h3>
+      <button class="link strong" id="sheet-done" type="button">Done</button>
+    </div>
+    <div class="panel-body" id="sheet-body"></div>
+  </div>
+</div>
+
+<script>
+var STATE = "__PRINTPULSE_STATE__";
+var RETURN_TO = '__RETURN_TO__';
+var PREVIEW = typeof STATE === 'string';
+if (PREVIEW) STATE = { settings: {}, sources: [], status: {} };
+
+var MAX = 8;
+var BRANDS = {
+  klipper: { label: 'Klipper', letter: 'K', color: 'var(--klipper)', blurb: 'Mainsail, Fluidd or plain Moonraker' },
+  bambu: { label: 'Bambu Lab', letter: 'B', color: 'var(--bambu)', blurb: 'X1, P1, A1 and H2 series' },
+  prusa: { label: 'Prusa', letter: 'P', color: 'var(--prusa)', blurb: 'MK4, XL, MINI, CORE One (PrusaLink)' }
+};
+
+var settings = merge({ interval: 30, theme: 0, vibe: true, wake: true, demo: false }, STATE.settings);
+var checks = STATE.status || {};  // not `status`: that's window.status, a string
+var sources = (STATE.sources || []).map(function (s) {
+  var c = clone(s);
+  c.has = c.has || {};
+  c.hidden = c.hidden || [];
+  c.secrets = {};
+  c.clear = [];
+  return c;
+});
+var dirty = false;
+var draft = null;
+var draftIndex = -1;
+
+function $(id) { return document.getElementById(id); }
+function clone(o) { return JSON.parse(JSON.stringify(o)); }
+function merge(a, b) { var o = {}, k; for (k in a) o[k] = a[k]; for (k in b || {}) o[k] = b[k]; return o; }
+function esc(t) {
+  return String(t === undefined || t === null ? '' : t).replace(/[&<>"']/g, function (c) {
+    return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
+  });
+}
+function newId() { return 's' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6); }
+function ago(ms) {
+  var s = Math.max(0, Math.round((Date.now() - ms) / 1000));
+  if (s < 60) return 'just now';
+  if (s < 3600) return Math.round(s / 60) + ' min ago';
+  if (s < 86400) return Math.round(s / 3600) + ' h ago';
+  return Math.round(s / 86400) + ' d ago';
+}
+function markDirty() {
+  dirty = true;
+  $('dirty').textContent = 'Unsaved changes';
+}
+
+function badge(type) {
+  var b = BRANDS[type];
+  return '<span class="badge" style="background:' + b.color + '">' + b.letter + '</span>';
+}
+
+function title(s) {
+  if (s.type === 'bambu') return s.mode === 'bridge' ? 'Bambu LAN bridge' : 'Bambu Lab account';
+  return s.name || BRANDS[s.type].label;
+}
+
+function subtitle(s) {
+  if (s.type === 'bambu' && s.mode !== 'bridge') return (s.email || 'Not signed in') + (s.region === 'china' ? ' · China' : '');
+  return s.host || 'No address';
+}
+
+function statusLine(s) {
+  var st = checks[s.id];
+  if (s.type === 'bambu' && s.mode !== 'bridge' && s.needsCode) {
+    return '<div class="status warn"><span class="dot"></span><b>Enter the code Bambu emailed you</b></div>';
+  }
+  if (!st || !st.at) return '<div class="status"><span class="dot"></span><b>Not checked yet</b></div>';
+  if (st.ok) return '<div class="status ok"><span class="dot"></span><b>' + esc(st.text) + '</b>&nbsp;· ' + ago(st.at) + '</div>';
+  return '<div class="status bad"><span class="dot"></span><b>' + esc(st.text) + '</b>&nbsp;· ' + ago(st.at) + '</div>';
+}
+
+// ---- main page ----
+
+function renderList() {
+  var list = $('list');
+  if (!sources.length) {
+    list.innerHTML = '<div class="empty">No printers yet. Add your first one and it will show up on your watch.</div>';
+  } else {
+    list.innerHTML = '';
+    sources.forEach(function (s, i) {
+      var card = document.createElement('button');
+      card.type = 'button';
+      card.className = 'card';
+      card.innerHTML = badge(s.type) + '<div class="card-body"><div class="card-title">' + esc(title(s)) +
+        '</div><div class="card-sub">' + esc(subtitle(s)) + '</div>' + statusLine(s) + '</div><span class="chev">›</span>';
+      card.onclick = function () { openEditor(i); };
+      list.appendChild(card);
+    });
+  }
+  $('count').textContent = sources.length ? sources.length + ' of ' + MAX : '';
+  $('add').disabled = sources.length >= MAX;
+}
+
+function segmented(el, options, value, onPick) {
+  el.innerHTML = '';
+  options.forEach(function (o) {
+    var b = document.createElement('button');
+    b.type = 'button';
+    b.textContent = o[1];
+    if (o[0] === value) b.className = 'on';
+    b.onclick = function () {
+      onPick(o[0]);
+      segmented(el, options, o[0], onPick);
+    };
+    el.appendChild(b);
+  });
+}
+
+function renderSettings() {
+  segmented($('interval'), [[15, '15s'], [30, '30s'], [60, '1m'], [120, '2m']], settings.interval, function (v) {
+    settings.interval = v; markDirty();
+  });
+  segmented($('theme'), [[0, 'Dark'], [1, 'Light']], settings.theme, function (v) {
+    settings.theme = v; markDirty();
+  });
+  ['vibe', 'wake', 'demo'].forEach(function (key) {
+    var box = $(key);
+    box.checked = !!settings[key];
+    box.onchange = function () { settings[key] = box.checked; markDirty(); };
+  });
+}
+
+// ---- sheet ----
+
+function openSheet(heading, html, doneLabel) {
+  $('sheet-title').textContent = heading;
+  $('sheet-body').innerHTML = html;
+  $('sheet-done').style.visibility = doneLabel ? 'visible' : 'hidden';
+  $('sheet-done').textContent = doneLabel || '';
+  $('sheet').className = 'sheet open';
+  $('sheet-body').parentNode.scrollTop = 0;
+}
+
+function closeSheet() {
+  $('sheet').className = 'sheet';
+  draft = null;
+}
+
+function openPicker() {
+  var html = '<p class="hint" style="margin-top:12px">What kind of printer is it?</p>';
+  ['klipper', 'bambu', 'prusa'].forEach(function (type) {
+    var b = BRANDS[type];
+    html += '<button type="button" class="tile" data-type="' + type + '">' + badge(type) +
+      '<div><strong>' + b.label + '</strong><span class="blurb">' + b.blurb + '</span></div></button>';
+  });
+  openSheet('Add printer', html, null);
+  var tiles = $('sheet-body').querySelectorAll('.tile');
+  for (var i = 0; i < tiles.length; i++) {
+    tiles[i].onclick = function () { startDraft(this.getAttribute('data-type')); };
+  }
+}
+
+function startDraft(type) {
+  draftIndex = -1;
+  draft = {
+    id: newId(), type: type, mode: 'cloud', region: 'global', name: '', host: '', user: 'maker', email: '',
+    hidden: [], has: {}, secrets: {}, clear: [], needsCode: false
+  };
+  renderEditor();
+}
+
+function openEditor(index) {
+  draftIndex = index;
+  draft = clone(sources[index]);
+  renderEditor();
+}
+
+function field(key, label, opts) {
+  opts = opts || {};
+  var value = opts.secret || key === 'code' ? (draft.secrets[key] || '') : (draft[key] || '');
+  var type = opts.secret ? 'password' : (opts.type || 'text');
+  var saved = opts.secret && draft.has[key] && draft.clear.indexOf(key) < 0;
+  var placeholder = saved ? 'Saved · leave blank to keep' : (opts.placeholder || '');
+  var html = '<label class="field"><span>' + label + '</span><input type="' + type + '" data-key="' + key + '"' +
+    (opts.secret ? ' data-secret="1"' : '') + ' value="' + esc(value) + '" placeholder="' + esc(placeholder) +
+    '" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false"' +
+    (opts.inputmode ? ' inputmode="' + opts.inputmode + '"' : '') + '>';
+  if (saved) html += '<div class="saved">✓ Saved on your phone<button type="button" data-clear="' + key + '">Remove</button></div>';
+  if (opts.hint) html += '<small class="hint">' + opts.hint + '</small>';
+  html += '<div class="err" id="err-' + key + '"></div></label>';
+  return html;
+}
+
+function devicesBlock() {
+  var st = checks[draft.id];
+  if (!st || !st.devices || !st.devices.length) return '';
+  var html = '<div class="devices"><h4>Show on watch</h4><div class="group">';
+  st.devices.forEach(function (d) {
+    var on = draft.hidden.indexOf(String(d.id)) < 0;
+    html += '<div class="row"><div class="row-text">' + esc(d.name || d.id) + '</div><label class="switch">' +
+      '<input type="checkbox" data-device="' + esc(d.id) + '"' + (on ? ' checked' : '') + '><span></span></label></div>';
+  });
+  return html + '</div></div>';
+}
+
+function editorHtml() {
+  var t = draft.type;
+  var h = '';
+  if (t === 'klipper') {
+    h += field('name', 'Name', { placeholder: 'Voron 2.4' });
+    h += field('host', 'Address', {
+      placeholder: '192.168.1.40 or voron.local', inputmode: 'url',
+      hint: 'The address you open Mainsail or Fluidd with. Moonraker\'s port 7125 is tried automatically.'
+    });
+    h += field('apiKey', 'API key (optional)', { secret: true, hint: 'Only needed if Moonraker asks for one.' });
+  } else if (t === 'prusa') {
+    h += field('name', 'Name', { placeholder: 'MK4S' });
+    h += field('host', 'Address', { placeholder: '192.168.1.41', inputmode: 'url' });
+    h += field('user', 'Username', { placeholder: 'maker' });
+    h += field('password', 'Password', {
+      secret: true, hint: 'On the printer: Settings → Network → PrusaLink. The username is usually “maker”.'
+    });
+    h += '<details' + (draft.has.apiKey ? ' open' : '') + '><summary>Older firmware? Use an API key instead</summary>' +
+      field('apiKey', 'API key', { secret: true }) + '</details>';
+  } else {
+    h += '<label class="field"><span>Connect through</span><div class="seg full" id="mode"></div></label>';
+    if (draft.mode === 'bridge') {
+      h += '<div class="callout info">For printers in LAN-only mode. Run <b>bambu_bridge.py</b> (in the PrintPulse download) on a computer that stays on, then enter its address here.</div>';
+      h += field('host', 'Bridge address', { placeholder: 'http://192.168.1.10:8787', inputmode: 'url' });
+      h += field('token', 'Bridge token (optional)', { secret: true, hint: 'Only if you started the bridge with --token.' });
+    } else {
+      h += '<label class="field"><span>Region</span><div class="seg full" id="region"></div></label>';
+      h += field('email', 'Bambu Lab email', { type: 'email', placeholder: 'you@example.com', inputmode: 'email' });
+      var signedIn = draft.has.token && draft.clear.indexOf('token') < 0 && !draft.secrets.password;
+      if (signedIn) {
+        h += '<div class="callout ok"><span>✓ Signed in</span><button type="button" class="link" data-clear="token">Sign out</button></div>';
+      } else {
+        if (draft.needsCode) {
+          h += '<div class="callout warn">Bambu emailed you a verification code. Enter it below and save.</div>';
+          h += field('code', 'Verification code', { secret: false, placeholder: '123456', inputmode: 'numeric' });
+        }
+        h += field('password', 'Password', {
+          secret: true,
+          hint: 'Used once to sign in. PrintPulse keeps the access token on your phone, never your password.'
+        });
+        h += '<details' + (draft.has.token ? ' open' : '') + '><summary>Two-factor login? Paste an access token</summary>' +
+          field('token', 'Access token', { secret: true, hint: 'Sign in at bambulab.com and copy the “token” cookie. See the README.' }) +
+          '</details>';
+      }
+      h += '<p class="hint" style="margin-top:14px">Every printer on the account shows up on your watch. Progress from Bambu Cloud can be an estimate; use the LAN bridge for exact numbers.</p>';
+    }
+    h += devicesBlock();
+  }
+  if (draftIndex >= 0) {
+    h += '<div class="actions">' + (draftIndex > 0 ? '<button type="button" id="move-up">Move up</button>' : '') +
+      '<button type="button" class="danger" id="remove">Remove</button></div>';
+  }
+  return h;
+}
+
+function renderEditor() {
+  var verb = draftIndex >= 0 ? 'Edit ' : 'New ';
+  openSheet(verb + BRANDS[draft.type].label, editorHtml(), draftIndex >= 0 ? 'Done' : 'Add');
+  var body = $('sheet-body');
+
+  var inputs = body.querySelectorAll('input[data-key]');
+  for (var i = 0; i < inputs.length; i++) {
+    inputs[i].oninput = function () {
+      var key = this.getAttribute('data-key');
+      if (this.getAttribute('data-secret') || key === 'code') {
+        draft.secrets[key] = this.value;
+      } else {
+        draft[key] = this.value;
+      }
+    };
+  }
+  var clears = body.querySelectorAll('[data-clear]');
+  for (var j = 0; j < clears.length; j++) {
+    clears[j].onclick = function () {
+      var key = this.getAttribute('data-clear');
+      if (draft.clear.indexOf(key) < 0) draft.clear.push(key);
+      draft.has[key] = false;
+      renderEditor();
+    };
+  }
+  var devices = body.querySelectorAll('input[data-device]');
+  for (var d = 0; d < devices.length; d++) {
+    devices[d].onchange = function () {
+      var id = this.getAttribute('data-device');
+      draft.hidden = draft.hidden.filter(function (x) { return x !== id; });
+      if (!this.checked) draft.hidden.push(id);
+    };
+  }
+  if ($('mode')) {
+    segmented($('mode'), [['cloud', 'Bambu Cloud'], ['bridge', 'LAN bridge']], draft.mode, function (v) {
+      draft.mode = v; renderEditor();
+    });
+  }
+  if ($('region')) {
+    segmented($('region'), [['global', 'Global'], ['china', 'China']], draft.region, function (v) {
+      draft.region = v;
+    });
+  }
+  if ($('remove')) {
+    $('remove').onclick = function () {
+      if (this.getAttribute('data-armed')) {
+        sources.splice(draftIndex, 1);
+        markDirty();
+        closeSheet();
+        renderList();
+      } else {
+        this.setAttribute('data-armed', '1');
+        this.textContent = 'Tap again to remove';
+      }
+    };
+  }
+  if ($('move-up')) {
+    $('move-up').onclick = function () {
+      var item = sources.splice(draftIndex, 1)[0];
+      sources.splice(draftIndex - 1, 0, item);
+      markDirty();
+      closeSheet();
+      renderList();
+    };
+  }
+}
+
+function showError(key, message) {
+  var el = $('err-' + key);
+  if (el) {
+    el.textContent = message;
+    el.className = 'err show';
+  }
+  return false;
+}
+
+function validate() {
+  var ok = true;
+  var t = draft.type;
+  draft.name = (draft.name || '').trim();
+  draft.host = (draft.host || '').trim();
+  draft.email = (draft.email || '').trim();
+  if ((t === 'klipper' || t === 'prusa') && !draft.name) ok = showError('name', 'Give it a name you will recognise.');
+  if ((t !== 'bambu' || draft.mode === 'bridge') && !draft.host) ok = showError('host', 'Enter the address.') && ok;
+  if (t === 'bambu' && draft.mode !== 'bridge') {
+    if (!/.+@.+/.test(draft.email)) ok = showError('email', 'Enter the email of your Bambu Lab account.') && ok;
+    var hasLogin = draft.secrets.password || draft.secrets.token || draft.secrets.code ||
+      (draft.has.token && draft.clear.indexOf('token') < 0) || draft.needsCode;
+    if (!hasLogin) ok = showError('password', 'Enter your password to sign in.') && ok;
+  }
+  if (t === 'prusa' && !draft.secrets.password && !draft.secrets.apiKey && !draft.has.password && !draft.has.apiKey) {
+    ok = showError('password', 'PrusaLink needs the password shown on the printer.') && ok;
+  }
+  return ok;
+}
+
+function commitDraft() {
+  if (!draft || !validate()) return;
+  if (draftIndex >= 0) {
+    sources[draftIndex] = draft;
+  } else {
+    sources.push(draft);
+  }
+  markDirty();
+  closeSheet();
+  renderList();
+}
+
+function save() {
+  var out = {
+    settings: settings,
+    sources: sources.map(function (s) {
+      var secrets = {};
+      for (var k in s.secrets) {
+        if (s.secrets[k] && String(s.secrets[k]).trim()) secrets[k] = String(s.secrets[k]).trim();
+      }
+      return {
+        id: s.id, type: s.type, mode: s.mode, name: s.name, host: s.host, user: s.user, email: s.email,
+        region: s.region, hidden: s.hidden, secrets: secrets, clear: s.clear
+      };
+    })
+  };
+  if (PREVIEW || RETURN_TO.charAt(0) === '_') {
+    console.log(JSON.stringify(out, null, 2));
+    $('dirty').textContent = 'Preview only: nothing was sent';
+    return;
+  }
+  document.location = RETURN_TO + encodeURIComponent(JSON.stringify(out));
+}
+
+$('add').onclick = openPicker;
+$('save').onclick = save;
+$('sheet-cancel').onclick = closeSheet;
+$('scrim').onclick = closeSheet;
+$('sheet-done').onclick = commitDraft;
+renderList();
+renderSettings();
+</script>
+</body>
+</html>
