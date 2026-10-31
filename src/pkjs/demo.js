@@ -1,6 +1,6 @@
 // Fake printers that move over time, for trying the app without hardware.
 
-var m = require('../model');
+var m = require('./model');
 
 function cycle(now, length, offset) {
   return ((now + offset * length) % length) / length;

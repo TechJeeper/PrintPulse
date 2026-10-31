@@ -3,8 +3,8 @@
 // OctoPrint-style endpoints and API keys.
 // https://github.com/prusa3d/Prusa-Link-Web/blob/master/spec/openapi.yaml
 
-var http = require('../http');
-var m = require('../model');
+var http = require('./http');
+var m = require('./model');
 
 var runtime = {};  // source id -> { jobId, file }
 

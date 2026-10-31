@@ -54,6 +54,12 @@ On **macOS/Linux**, [install the SDK](https://developer.repebble.com/sdk) and ru
 
 Pick one:
 
+- **CloudPebble** (no command line). In the Pebble app on your phone, open the **Devices** tab, tap
+  your watch's three-dot menu and turn on **Dev Connection** ("Connected to CloudPebble"). In
+  CloudPebble, signed in with the same Pebble account, choose **Import → Upload zip** and pick
+  `dist/PrintPulse-cloudpebble.zip` (make it with `./build.ps1 -Zip`; the settings page is already
+  embedded). Then open **Build & Run**, build, choose the **Phone** tab under *Run On*, pick
+  **New Cloud Dev Connection** and click **Install and Run**.
 - **Open the file on your phone.** Send `build/PrintPulse.pbw` to your phone (AirDrop, email,
   cloud drive…) and open it with the Pebble app.
 - **Developer connection.** Turn on the developer connection in the Pebble app's settings, note the
@@ -130,7 +136,7 @@ src/c/            watch app (C)
   draw.* theme.* ui.*   drawing helpers, colours, header, toast
 src/pkjs/         phone side (JS)
   index.js        polling loop, message queue, settings page plumbing
-  printers/       klipper.js, prusa.js, bambu.js, demo.js
+  klipper.js prusa.js bambu.js demo.js   one module per printer type
   http.js md5.js  XHR wrapper with HTTP digest auth (PrusaLink)
   store.js        settings and secrets in the phone's localStorage
 config/index.html settings page; wscript embeds it into the JS bundle at build time

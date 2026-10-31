@@ -7,10 +7,10 @@ var store = require('./store');
 var configPage = require('./config_page');
 
 var DRIVERS = {
-  klipper: require('./printers/klipper'),
-  prusa: require('./printers/prusa'),
-  bambu: require('./printers/bambu'),
-  demo: require('./printers/demo')
+  klipper: require('./klipper'),
+  prusa: require('./prusa'),
+  bambu: require('./bambu'),
+  demo: require('./demo')
 };
 
 var DEMO_SOURCE = { id: 'demo', type: 'demo', name: 'Demo' };

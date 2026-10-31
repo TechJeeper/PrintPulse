@@ -5,10 +5,12 @@
 .EXAMPLE
   ./build.ps1                       # build build/PrintPulse.pbw
   ./build.ps1 -Phone 192.168.1.23   # build, then install via the Pebble app's developer connection
+  ./build.ps1 -Zip                  # build, then pack dist/PrintPulse-cloudpebble.zip for CloudPebble
   ./build.ps1 -Shell                # open a shell with the `pebble` tool
 #>
 param(
     [string]$Phone,
+    [switch]$Zip,
     [switch]$Shell
 )
 # Exit codes are checked explicitly: the SDK prints harmless warnings on stderr,
@@ -37,6 +39,7 @@ if ($Shell) {
 }
 
 $cmd = "$setup && pebble build"
+if ($Zip) { $cmd += " && python3 build-env/make_zip.py" }
 if ($Phone) { $cmd += " && pebble install --phone $Phone" }
 & $engine @run $image bash -c $cmd
 if ($LASTEXITCODE -ne 0) { throw 'Build failed.' }

@@ -7,8 +7,8 @@
 //  bridge - reads tools/bambu_bridge.py on the local network, which relays the
 //           printers' own LAN MQTT reports (works in LAN-only mode, exact data).
 
-var http = require('../http');
-var m = require('../model');
+var http = require('./http');
+var m = require('./model');
 
 var HOSTS = { global: 'https://api.bambulab.com', china: 'https://api.bambulab.cn' };
 var CLIENT_HEADERS = {

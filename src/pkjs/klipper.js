@@ -1,8 +1,8 @@
 // Klipper via the Moonraker API (also what Mainsail and Fluidd talk to).
 // https://moonraker.readthedocs.io/en/latest/web_api/
 
-var http = require('../http');
-var m = require('../model');
+var http = require('./http');
+var m = require('./model');
 
 var QUERY = '/printer/objects/query?webhooks&print_stats&virtual_sdcard&display_status&extruder&heater_bed';
 

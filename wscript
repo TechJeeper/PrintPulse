@@ -21,7 +21,10 @@ def configure(ctx):
 def embed_config_page(ctx):
     src = ctx.path.find_node('config/index.html')
     if src is None:
-        ctx.fatal('config/index.html is missing')
+        # e.g. the CloudPebble zip, which ships the page already embedded
+        if ctx.path.find_node('src/pkjs/config_page.js') is None:
+            ctx.fatal('config/index.html is missing')
+        return
     # Drop indentation and blank lines to keep the data: URL small. (waf reads
     # Latin-1 unless told otherwise.)
     text = src.read(encoding='utf-8').lstrip('﻿')
