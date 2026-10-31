@@ -2,8 +2,10 @@
 
 var m = require('./model');
 
-function cycle(now, length, offset) {
-  return ((now + offset * length) % length) / length;
+// Progress of a `total`-second print that advances in real time but loops
+// between `from` and `to`, so the demo always looks mid-print.
+function progressBetween(now, total, from, to) {
+  return from + (now % Math.round((to - from) * total)) / total;
 }
 
 function wobble(now, base, spread) {
@@ -15,7 +17,7 @@ function fetch(src, cb) {
   var printers = [];
 
   var voronLength = 2 * 3600 + 1800;
-  var voron = cycle(now, voronLength, 0.45);
+  var voron = progressBetween(now, voronLength, 0.3, 0.9);
   printers.push(m.printer({
     name: 'Voron 2.4', kind: m.KIND.klipper, state: m.STATE.PRINTING,
     file: 'stealthburner_main_body', progress: m.permille(voron),
@@ -25,7 +27,7 @@ function fetch(src, cb) {
   }));
 
   var x1Length = 95 * 60;
-  var x1 = cycle(now, x1Length, 0.81);
+  var x1 = progressBetween(now, x1Length, 0.55, 0.95);
   printers.push(m.printer({
     name: 'X1 Carbon', kind: m.KIND.bambu, state: m.STATE.PRINTING,
     file: 'Benchy_PLA_0.20mm', progress: m.permille(x1),
