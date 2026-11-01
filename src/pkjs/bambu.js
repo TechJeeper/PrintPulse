@@ -1,9 +1,12 @@
 // Bambu Lab printers, two ways:
 //
 //  cloud  - signs in to the Bambu Lab account and reads every printer on it
-//           from the (unofficial) cloud HTTP API. Live progress only travels
-//           over MQTT, so progress/time may be estimated from the slicer's
-//           prediction and the start time; those values are flagged.
+//           from the (unofficial) cloud HTTP API. Device state comes from
+//           /user/bind (print_status); /user/print adds task name/progress when
+//           the cloud has a job row (often missing for local/SD prints). Live
+//           progress otherwise travels over MQTT, so progress/time may be
+//           estimated from the slicer's prediction and the start time; those
+//           values are flagged.
 //  bridge - reads tools/bambu_bridge.py on the local network, which relays the
 //           printers' own LAN MQTT reports (works in LAN-only mode, exact data).
 
@@ -99,18 +102,31 @@ function cloudState(status) {
   if (/RUNNING|PRINTING|ACTIVE/.test(s)) return m.STATE.PRINTING;
   if (/PAUSE/.test(s)) return m.STATE.PAUSED;
   if (/PREPARE|SLICING|INIT/.test(s)) return m.STATE.PREPARING;
-  if (/FINISH|SUCCESS/.test(s)) return m.STATE.COMPLETE;
+  if (/FINISH/.test(s)) return m.STATE.COMPLETE;
+  // SUCCESS is Bambu's sticky "last job ok" / ready, not an in-progress finish screen.
+  if (/SUCCESS/.test(s)) return m.STATE.IDLE;
   if (/CANCEL/.test(s)) return m.STATE.CANCELLED;
   if (/FAIL/.test(s)) return m.STATE.ERROR;
   return m.STATE.IDLE;
 }
 
 function cloudPrinter(src, d, now) {
+  var reported = m.num(d.progress);
+  var state = d.online ? cloudState(d.status) : m.STATE.OFFLINE;
+  // Print endpoint still carrying a finished job → Complete (so the watch can buzz once).
+  if (state === m.STATE.IDLE && /SUCCESS/i.test(String(d.status || '')) &&
+      (d.task || (reported !== null && reported >= 100))) {
+    state = m.STATE.COMPLETE;
+  }
+  // Job fields without a usable status still mean an active print.
+  if (state === m.STATE.IDLE && d.task && reported !== null && reported > 0 && reported < 100) {
+    state = m.STATE.PRINTING;
+  }
   var p = m.printer({
     uid: m.hash(src.id + ':' + d.id),
     name: d.name || 'Bambu Lab',
     kind: m.KIND.bambu,
-    state: d.online ? cloudState(d.status) : m.STATE.OFFLINE,
+    state: state,
     file: m.cleanFileName(d.task)
   });
   if (!d.online) {
@@ -121,7 +137,6 @@ function cloudPrinter(src, d, now) {
   var start = d.start ? Date.parse(d.start) / 1000 : NaN;
   var elapsed = isFinite(start) ? Math.max(0, now - start) : null;
   var prediction = m.num(d.prediction);
-  var reported = m.num(d.progress);
   if (active) {
     if (elapsed !== null) p.elapsed = Math.round(elapsed);
     if (reported !== null && reported > 0) {
@@ -142,6 +157,40 @@ function cloudPrinter(src, d, now) {
   return p;
 }
 
+// /user/print has progress and task name, but task_status is often null during a
+// local/SD print. /user/bind's print_status (RUNNING/SUCCESS/…) stays accurate, so
+// always merge both: bind for state, print for live job fields when present.
+function mergeCloudDevices(printDevices, bindDevices) {
+  var byId = {};
+  var order = [];
+  function ensure(id) {
+    if (!byId[id]) {
+      byId[id] = { id: id, name: '', online: true, status: '' };
+      order.push(id);
+    }
+    return byId[id];
+  }
+  (bindDevices || []).forEach(function (d) {
+    var cur = ensure(d.dev_id);
+    cur.name = d.name || cur.name;
+    cur.online = d.online !== false;
+    cur.status = d.print_status || cur.status;
+  });
+  (printDevices || []).forEach(function (d) {
+    var cur = ensure(d.dev_id);
+    cur.name = d.dev_name || cur.name;
+    if (d.dev_online !== undefined && d.dev_online !== null) {
+      cur.online = d.dev_online !== false;
+    }
+    if (d.task_status) cur.status = d.task_status;
+    cur.task = d.task_name;
+    cur.start = d.start_time;
+    cur.prediction = d.prediction;
+    cur.progress = d.progress;
+  });
+  return order.map(function (id) { return byId[id]; });
+}
+
 function listDevices(src, token, ctx, cb) {
   var unauthorized = function () {
     ctx.update({ secrets: { token: null } });
@@ -150,22 +199,16 @@ function listDevices(src, token, ctx, cb) {
   call(src, 'GET', '/v1/iot-service/api/user/print?force=true', null, token, function (err, status, data) {
     if (err) return cb(err);
     if (status === 401) return unauthorized();
-    if (status === 200 && data.devices) {
-      return cb(null, data.devices.map(function (d) {
-        return {
-          id: d.dev_id, name: d.dev_name, online: d.dev_online !== false, status: d.task_status,
-          task: d.task_name, start: d.start_time, prediction: d.prediction, progress: d.progress
-        };
-      }));
-    }
-    // Older accounts/regions: the bind list still has a coarse print status.
+    var printDevices = (status === 200 && data && data.devices) ? data.devices : null;
+
     call(src, 'GET', '/v1/iot-service/api/user/bind', null, token, function (err2, status2, data2) {
       if (err2) return cb(err2);
       if (status2 === 401) return unauthorized();
-      if (status2 !== 200 || !data2.devices) return cb(new Error('Bambu Cloud error ' + status));
-      cb(null, data2.devices.map(function (d) {
-        return { id: d.dev_id, name: d.name, online: d.online !== false, status: d.print_status };
-      }));
+      var bindDevices = (status2 === 200 && data2 && data2.devices) ? data2.devices : null;
+      if (!printDevices && !bindDevices) {
+        return cb(new Error('Bambu Cloud error ' + (status2 || status)));
+      }
+      cb(null, mergeCloudDevices(printDevices, bindDevices));
     });
   });
 }
@@ -271,5 +314,6 @@ module.exports = {
     return src.mode === 'bridge' ? 0 : 60;
   },
   _cloudPrinter: cloudPrinter,
-  _lanPrinter: lanPrinter
+  _lanPrinter: lanPrinter,
+  _mergeCloudDevices: mergeCloudDevices
 };
