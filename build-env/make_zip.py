@@ -1,7 +1,7 @@
 """Packs the project as a CloudPebble import: dist/PrintPulse-cloudpebble.zip.
 
-Run after `pebble build`, which generates src/pkjs/config_page.js. CloudPebble
-may build with its own wscript, so the zip carries that file ready-made.
+Run after `pebble build`. config_page.js is committed for CloudPebble/GitHub
+builds (CloudPebble may skip our wscript embed step); the zip carries it too.
 """
 import os
 import sys

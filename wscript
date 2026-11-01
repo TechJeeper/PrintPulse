@@ -19,11 +19,14 @@ def configure(ctx):
 
 
 def embed_config_page(ctx):
+    # config_page.js is committed so CloudPebble (which may skip this wscript)
+    # and GitHub clones can webpack without a prior local build. When
+    # config/index.html is present, refresh the embed so they stay in sync.
     src = ctx.path.find_node('config/index.html')
+    dst = ctx.path.find_node('src/pkjs/config_page.js')
     if src is None:
-        # e.g. the CloudPebble zip, which ships the page already embedded
-        if ctx.path.find_node('src/pkjs/config_page.js') is None:
-            ctx.fatal('config/index.html is missing')
+        if dst is None:
+            ctx.fatal('config/index.html and src/pkjs/config_page.js are both missing')
         return
     # Drop indentation and blank lines to keep the data: URL small. (waf reads
     # Latin-1 unless told otherwise.)
@@ -32,9 +35,9 @@ def embed_config_page(ctx):
     html = '\n'.join(line for line in lines if line)
     js = ('// Generated from config/index.html by wscript. Do not edit.\n'
           'module.exports = ' + json.dumps(html) + ';\n')
-    dst = ctx.path.make_node('src/pkjs/config_page.js')
-    if not os.path.exists(dst.abspath()) or dst.read(encoding='utf-8') != js:
-        dst.write(js, encoding='utf-8')
+    out = ctx.path.make_node('src/pkjs/config_page.js')
+    if not os.path.exists(out.abspath()) or out.read(encoding='utf-8') != js:
+        out.write(js, encoding='utf-8')
 
 
 def build(ctx):
