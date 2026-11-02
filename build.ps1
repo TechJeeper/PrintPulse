@@ -40,6 +40,9 @@ $run = @('run', '--rm', '-v', "${root}:/PrintPulse", '-w', '/PrintPulse', '-v', 
 if ($env:PEBBLE_FIREBASE_ID_TOKEN) {
     $run += @('-e', 'PEBBLE_FIREBASE_ID_TOKEN')
 }
+if ($env:PEBBLE_FIREBASE_API_KEY) {
+    $run += @('-e', 'PEBBLE_FIREBASE_API_KEY')
+}
 $setup = 'pebble sdk list 2>/dev/null | grep -q active || pebble sdk install latest'
 
 if ($Shell) {

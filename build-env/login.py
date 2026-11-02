@@ -20,10 +20,16 @@ DEFAULT_APPSTORE_API_BASE = os.getenv(
 DEFAULT_OAUTH_BROKER_CLIENT_KEY = os.getenv(
     'PEBBLE_CLI_OAUTH_CLIENT_KEY', 'pebble-cli-public'
 )
-DEFAULT_FIREBASE_API_KEY = os.getenv(
-    'PEBBLE_FIREBASE_API_KEY',
-    'AIzaSyBZ9Cdvwwv9At2lPmc8TxyyEqSXGXejGvc'
-)
+
+
+def _firebase_api_key():
+    key = (os.getenv('PEBBLE_FIREBASE_API_KEY') or '').strip()
+    if not key:
+        sys.exit(
+            'Set PEBBLE_FIREBASE_API_KEY (Firebase Web API key for the '
+            'RePebble/Pebble Identity Toolkit project) before running login.'
+        )
+    return key
 
 
 def main():
@@ -34,6 +40,7 @@ def main():
 
     broker = DEFAULT_APPSTORE_API_BASE
     client_key = DEFAULT_OAUTH_BROKER_CLIENT_KEY
+    firebase_api_key = _firebase_api_key()
     # Dummy callback — nothing listens here. Browser will show a connection
     # error; that is OK. The broker still completes the flow; we poll exchange.
     # Avoid Chrome "unsafe ports" (e.g. 9); 8765 is fine.
@@ -99,7 +106,7 @@ def main():
     sys.stdout.flush()
     fb = requests.post(
         'https://identitytoolkit.googleapis.com/v1/accounts:signInWithCustomToken?key=%s'
-        % DEFAULT_FIREBASE_API_KEY,
+        % firebase_api_key,
         json={'token': exchange_payload['credential'], 'returnSecureToken': True},
         timeout=30,
     )
