@@ -48,8 +48,16 @@ if ($Shell) {
 }
 
 if ($Login) {
-    Write-Host "Opening pebble login in the SDK container (session is kept in the '$volume' volume)..."
-    & $engine @run -it $image bash -c "$setup; pebble login"
+    # Browser OAuth; we poll the broker for the token (no localhost callback port).
+    Write-Host @"
+Pebble login (session is kept in the '$volume' volume)
+
+1. Open the URL that appears in your Windows browser and sign in.
+2. The browser may then show a connection error on localhost — that is OK.
+3. Leave this terminal running until it prints Login OK (do not Ctrl+C).
+
+"@
+    & $engine @run -it $image bash -c "$setup; python3 build-env/login.py"
     exit $LASTEXITCODE
 }
 

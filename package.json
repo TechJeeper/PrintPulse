@@ -1,7 +1,7 @@
 {
   "name": "printpulse",
   "author": "caffeinegamer",
-  "version": "1.1.0",
+  "version": "1.1.1",
   "keywords": ["pebble-app", "3d-printing", "klipper", "bambu", "prusa"],
   "private": true,
   "dependencies": {},
@@ -9,12 +9,26 @@
     "displayName": "PrintPulse",
     "uuid": "457aa141-b261-4d2b-aa43-1680f823cd89",
     "sdkVersion": "3",
+    "manifestVersion": 2,
     "enableMultiJS": true,
     "targetPlatforms": ["emery", "basalt", "diorite", "flint"],
     "watchapp": {
       "watchface": false
     },
     "capabilities": ["configurable"],
+    "usesPermissions": [
+      "LocalNetwork",
+      {
+        "name": "Internet",
+        "parameters": {
+          "domains": [
+            "api.bambulab.com",
+            "api.bambulab.cn",
+            "raw.githubusercontent.com"
+          ]
+        }
+      }
+    ],
     "messageKeys": [
       "Cmd",
       "Index",

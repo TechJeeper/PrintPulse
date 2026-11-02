@@ -1,5 +1,5 @@
 {
-  "version": "1.1.0",
+  "version": "1.1.1",
   "url": "https://github.com/TechJeeper/PrintPulse/releases/latest",
-  "message": "PrintPulse 1.1.0 is available — update check, store publish, and printer controls"
+  "message": "PrintPulse 1.1.1 is available — clearer store permissions (LAN + Bambu only)"
 }

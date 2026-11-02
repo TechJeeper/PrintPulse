@@ -14,9 +14,10 @@ Keep these three equal to NEW:
       https://github.com/TechJeeper/PrintPulse/releases/latest).
 
 ## 2. One-time appstore login (per machine / SDK volume)
-- [ ] `./build.ps1 -Login`
-      Signs into your Pebble account inside the container; the session stays
-      in the `pebble-sdk` volume. Or set `PEBBLE_FIREBASE_ID_TOKEN` for CI.
+- [ ] In a normal Windows terminal: `./build.ps1 -Login`
+      Open the printed URL and sign in. A localhost error page afterward is OK —
+      wait for “Login OK” in the terminal (do not Ctrl+C).
+      Session stays in the `pebble-sdk` volume. Or set `PEBBLE_FIREBASE_ID_TOKEN` for CI.
 
 ## 3. Build + publish to the Pebble appstore
 - [ ] Refresh screenshots in `store/screenshots/` if the UI changed

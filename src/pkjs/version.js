@@ -3,7 +3,7 @@
 
 var http = require('./http');
 
-var APP_VERSION = '1.1.0';
+var APP_VERSION = '1.1.1';
 var CHECK_URL = 'https://raw.githubusercontent.com/TechJeeper/PrintPulse/main/version.json';
 var DISMISS_KEY = 'printpulse.dismissedVersion';
 var TOAST_KEY = 'printpulse.updateToast';
