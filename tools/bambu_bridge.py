@@ -5,7 +5,8 @@ Bambu printers only talk MQTT over TLS on the local network, which the Pebble
 phone app can't open. This small server keeps an MQTT connection to each
 printer and serves their latest state as plain JSON for PrintPulse:
 
-    GET /status  ->  {"printers": [{"id", "name", "online", "updated", "error", "report": {...}}]}
+    GET /status   ->  {"printers": [{"id", "name", "online", "updated", "error", "report": {...}}]}
+    POST /command ->  {"id": "<serial>", "command": "pause"|"resume"|"stop"}
 
 Setup (any always-on computer on the same network: Raspberry Pi, NAS, PC):
 
@@ -94,6 +95,17 @@ class Printer:
         if self.client and self.connected:
             self.client.publish("device/%s/request" % self.serial, PUSHALL)
 
+    def send_command(self, command):
+        if command not in ("pause", "resume", "stop"):
+            return False, "unknown command"
+        if not self.client or not self.connected:
+            return False, "printer offline"
+        payload = json.dumps({"print": {"sequence_id": "0", "command": command, "param": ""}})
+        info = self.client.publish("device/%s/request" % self.serial, payload, qos=1)
+        if getattr(info, "rc", 0) != 0:
+            return False, "publish failed"
+        return True, ""
+
     # paho 1.x passes (client, userdata, flags, rc); 2.x adds properties.
     def _on_connect(self, client, userdata, flags, reason, *rest):
         code = reason_value(reason)
@@ -143,14 +155,45 @@ class Handler(BaseHTTPRequestHandler):
     printers = []
     token = ""
 
+    def _authorized(self, url):
+        given = self.headers.get("X-Bridge-Token") or parse_qs(url.query).get("token", [""])[0]
+        return not self.token or given == self.token
+
     def do_GET(self):
         url = urlparse(self.path)
         if url.path not in ("/", "/status"):
             return self._send(404, {"error": "not found"})
-        given = self.headers.get("X-Bridge-Token") or parse_qs(url.query).get("token", [""])[0]
-        if self.token and given != self.token:
+        if not self._authorized(url):
             return self._send(401, {"error": "bad token"})
         self._send(200, {"printers": [p.snapshot() for p in self.printers]})
+
+    def do_POST(self):
+        url = urlparse(self.path)
+        if url.path != "/command":
+            return self._send(404, {"error": "not found"})
+        if not self._authorized(url):
+            return self._send(401, {"error": "bad token"})
+        length = int(self.headers.get("Content-Length") or 0)
+        try:
+            body = json.loads(self.rfile.read(length).decode("utf-8") or "{}")
+        except ValueError:
+            return self._send(400, {"error": "bad json"})
+        serial = str(body.get("id") or "")
+        command = str(body.get("command") or "")
+        printer = next((p for p in self.printers if p.serial == serial), None)
+        if not printer:
+            return self._send(404, {"error": "printer not found"})
+        ok, err = printer.send_command(command)
+        if not ok:
+            return self._send(409, {"error": err})
+        self._send(200, {"ok": True})
+
+    def do_OPTIONS(self):
+        self.send_response(204)
+        self.send_header("Access-Control-Allow-Origin", "*")
+        self.send_header("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
+        self.send_header("Access-Control-Allow-Headers", "Content-Type, X-Bridge-Token")
+        self.end_headers()
 
     def _send(self, code, payload):
         body = json.dumps(payload).encode("utf-8")

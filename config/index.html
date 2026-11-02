@@ -157,6 +157,13 @@ input:focus { border-color: var(--accent); box-shadow: 0 0 0 3px color-mix(in sr
 .callout.info { background: rgba(10, 143, 224, 0.12); background: color-mix(in srgb, var(--accent) 12%, transparent); }
 .callout.warn { background: rgba(194, 65, 12, 0.14); background: color-mix(in srgb, var(--warn) 14%, transparent); }
 .callout.ok { background: rgba(22, 163, 74, 0.14); background: color-mix(in srgb, var(--ok) 14%, transparent); display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.callout.update {
+  display: flex; align-items: flex-start; justify-content: space-between; gap: 12px;
+  margin: 0 0 8px; background: rgba(10, 143, 224, 0.12); background: color-mix(in srgb, var(--accent) 12%, transparent);
+}
+.callout.update .update-body { flex: 1; min-width: 0; }
+.callout.update strong { display: block; margin-bottom: 2px; }
+.callout.update .update-actions { display: flex; flex-direction: column; align-items: flex-end; gap: 6px; flex: none; }
 .err { color: var(--bad); font-size: 13px; margin: 6px 4px 0; display: none; }
 .err.show { display: block; }
 details { margin-top: 16px; }
@@ -184,6 +191,8 @@ summary { color: var(--accent); font-size: 14px; cursor: pointer; margin: 0 4px;
       <p>Your 3D printers, on your wrist.</p>
     </div>
   </header>
+
+  <div id="update"></div>
 
   <div class="section-head"><h2>Printers</h2><span class="count" id="count"></span></div>
   <div id="list"></div>
@@ -251,6 +260,7 @@ var BRANDS = {
 
 var settings = merge({ interval: 30, theme: 0, vibe: true, wake: true, demo: false }, STATE.settings);
 var checks = STATE.status || {};  // not `status`: that's window.status, a string
+var update = STATE.update || null;
 var sources = (STATE.sources || []).map(function (s) {
   var c = clone(s);
   c.has = c.has || {};
@@ -262,6 +272,7 @@ var sources = (STATE.sources || []).map(function (s) {
 var dirty = false;
 var draft = null;
 var draftIndex = -1;
+var dismissVersion = null;
 
 function $(id) { return document.getElementById(id); }
 function clone(o) { return JSON.parse(JSON.stringify(o)); }
@@ -310,6 +321,36 @@ function statusLine(s) {
 }
 
 // ---- main page ----
+
+function renderUpdate() {
+  var el = $('update');
+  if (!update) {
+    el.innerHTML = '';
+    return;
+  }
+  var msg = update.message || ('PrintPulse ' + update.version + ' is available');
+  el.innerHTML =
+    '<div class="callout update"><div class="update-body"><strong>Update available</strong>' +
+    esc(msg) + (update.version ? ' · v' + esc(update.version) : '') +
+    '</div><div class="update-actions">' +
+    (update.url ? '<a class="link strong" href="' + esc(update.url) + '" target="_blank" rel="noopener">Get it</a>' : '') +
+    '<button class="link" id="dismiss-update" type="button">Dismiss</button></div></div>';
+  var btn = $('dismiss-update');
+  if (btn) {
+    btn.onclick = function () {
+      dismissVersion = update.version;
+      update = null;
+      renderUpdate();
+      if (!dirty) {
+        // Nothing else to save: close with just the dismiss so it sticks.
+        if (PREVIEW || RETURN_TO.charAt(0) === '_') return;
+        document.location = RETURN_TO + encodeURIComponent(JSON.stringify({ dismissVersion: dismissVersion }));
+      } else {
+        $('dirty').textContent = 'Unsaved changes · update dismissed';
+      }
+    };
+  }
+}
 
 function renderList() {
   var list = $('list');
@@ -473,11 +514,11 @@ function editorHtml() {
           secret: true,
           hint: 'Used once to sign in. PrintPulse keeps the access token on your phone, never your password.'
         });
-        h += '<details' + (draft.has.token ? ' open' : '') + '><summary>Two-factor login? Paste an access token</summary>' +
-          field('token', 'Access token', { secret: true, hint: 'Sign in at bambulab.com and copy the “token” cookie. See the README.' }) +
+        h += '<details' + (draft.has.token ? ' open' : '') + '><summary>2FA or social login (Google, Apple, Facebook)? Paste an access token</summary>' +
+          field('token', 'Access token', { secret: true, hint: 'Sign in at bambulab.com (email, Google, Apple or Facebook), open developer tools, and copy the “token” cookie. See the README.' }) +
           '</details>';
       }
-      h += '<p class="hint" style="margin-top:14px">Every printer on the account shows up on your watch. Progress from Bambu Cloud can be an estimate; use the LAN bridge for exact numbers.</p>';
+      h += '<p class="hint" style="margin-top:14px">Every printer on the account shows up on your watch. Cloud progress can be an estimate, and temperatures and layers need the LAN bridge.</p>';
     }
     h += devicesBlock();
   }
@@ -610,6 +651,7 @@ function save() {
       };
     })
   };
+  if (dismissVersion) out.dismissVersion = dismissVersion;
   if (PREVIEW || RETURN_TO.charAt(0) === '_') {
     console.log(JSON.stringify(out, null, 2));
     $('dirty').textContent = 'Preview only: nothing was sent';
@@ -623,6 +665,7 @@ $('save').onclick = save;
 $('sheet-cancel').onclick = closeSheet;
 $('scrim').onclick = closeSheet;
 $('sheet-done').onclick = commitDraft;
+renderUpdate();
 renderList();
 renderSettings();
 </script>

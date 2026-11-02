@@ -15,6 +15,71 @@ typedef struct {
 static Window *s_window;
 static Layer *s_canvas;
 static int s_index;
+static ActionMenuLevel *s_action_root;
+
+static bool can_control(const Printer *p) {
+  if (!p || (p->flags & PF_STALE)) {
+    return false;
+  }
+  return p->state == PS_PRINTING || p->state == PS_PAUSED || p->state == PS_PREPARING ||
+         p->state == PS_ATTENTION;
+}
+
+static void action_sent(ActionMenu *menu, const ActionMenuItem *item, void *context) {
+  int action = (int)(intptr_t)context;
+  const char *toast = "Sending…";
+  switch (action) {
+    case ACTION_PAUSE: toast = "Pausing…"; break;
+    case ACTION_RESUME: toast = "Resuming…"; break;
+    case ACTION_STOP: toast = "Stopping…"; break;
+  }
+  ui_toast(toast, PBL_IF_COLOR_ELSE(GColorPictonBlue, theme()->text));
+  comm_send_action(s_index, action);
+}
+
+static void action_closed(ActionMenu *menu, const ActionMenuItem *item, void *context) {
+  if (s_action_root) {
+    action_menu_hierarchy_destroy(s_action_root, NULL, NULL);
+    s_action_root = NULL;
+  }
+}
+
+static ActionMenuLevel *confirm_level(const char *confirm, const char *abort, int action) {
+  ActionMenuLevel *level = action_menu_level_create(2);
+  action_menu_level_add_action(level, confirm, action_sent, (void *)(intptr_t)action);
+  action_menu_level_add_action(level, abort, NULL, NULL);
+  return level;
+}
+
+static void open_job_actions(void) {
+  Printer *p = model_get(s_index);
+  if (!can_control(p)) {
+    ui_toast("No job to control", theme()->muted);
+    return;
+  }
+
+  bool paused = p->state == PS_PAUSED || p->state == PS_ATTENTION;
+  ActionMenuLevel *root = action_menu_level_create(2);
+  if (paused) {
+    action_menu_level_add_action(root, "Resume", action_sent, (void *)(intptr_t)ACTION_RESUME);
+  } else {
+    action_menu_level_add_child(root, confirm_level("Pause print", "Keep printing", ACTION_PAUSE),
+                                "Pause…");
+  }
+  action_menu_level_add_child(root, confirm_level("Stop print", "Keep printing", ACTION_STOP),
+                              "Stop…");
+
+  s_action_root = root;
+  ActionMenuConfig cfg = (ActionMenuConfig){
+    .root_level = root,
+    .colors = {
+      .background = theme()->surface,
+      .foreground = theme()->text,
+    },
+    .did_close = action_closed,
+  };
+  action_menu_open(&cfg);
+}
 
 static void fmt_eta(char *buf, size_t size, time_t eta) {
   time_t now = time(NULL);
@@ -258,10 +323,16 @@ static void select_click(ClickRecognizerRef recognizer, void *context) {
   comm_request_refresh();
 }
 
+static void select_long_click(ClickRecognizerRef recognizer, void *context) {
+  app_note_user_activity();
+  open_job_actions();
+}
+
 static void click_config(void *context) {
   window_single_click_subscribe(BUTTON_ID_UP, up_click);
   window_single_click_subscribe(BUTTON_ID_DOWN, down_click);
   window_single_click_subscribe(BUTTON_ID_SELECT, select_click);
+  window_long_click_subscribe(BUTTON_ID_SELECT, 500, select_long_click, NULL);
 }
 
 static void window_load(Window *window) {

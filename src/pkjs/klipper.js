@@ -157,8 +157,34 @@ function fetch(src, cb) {
   });
 }
 
+var CONTROL = {
+  pause: '/printer/print/pause',
+  resume: '/printer/print/resume',
+  stop: '/printer/print/cancel'
+};
+
+function control(src, opts, action, cb) {
+  var path = CONTROL[action];
+  if (!path) return cb(new Error('Unknown action'));
+  query(src, function (err, status, state) {
+    if (err) return cb(err);
+    http.request({
+      method: 'POST',
+      url: state.base + path,
+      headers: headers(src),
+      body: {}
+    }, function (reqErr, res) {
+      if (reqErr) return cb(reqErr);
+      if (res.status === 401 || res.status === 403) return cb(m.setupError('API key needed'));
+      if (res.status < 200 || res.status >= 300) return cb(http.httpError(res));
+      cb(null);
+    });
+  });
+}
+
 module.exports = {
   fetch: fetch,
+  control: control,
   minInterval: 0,
   _parse: parse
 };

@@ -60,4 +60,9 @@ function fetch(src, cb) {
   cb(null, printers);
 }
 
-module.exports = { fetch: fetch, minInterval: 0 };
+function control(src, opts, action, cb) {
+  // Demo printers only pretend; the watch still gets a success toast.
+  setTimeout(function () { cb(null); }, 200);
+}
+
+module.exports = { fetch: fetch, control: control, minInterval: 0 };

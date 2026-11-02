@@ -2,11 +2,11 @@
 //
 //  cloud  - signs in to the Bambu Lab account and reads every printer on it
 //           from the (unofficial) cloud HTTP API. Device state comes from
-//           /user/bind (print_status); /user/print adds task name/progress when
-//           the cloud has a job row (often missing for local/SD prints). Live
-//           progress otherwise travels over MQTT, so progress/time may be
-//           estimated from the slicer's prediction and the start time; those
-//           values are flagged.
+//           /user/bind (print_status). Job name/progress come from /user/print
+//           when present; otherwise /user-service/my/tasks supplies title,
+//           start time and slicer estimate (endTime ≈ startTime ⇒ in progress).
+//           Live temps/layers travel over MQTT only, so progress/time may be
+//           estimated and flagged; use the LAN bridge for exact numbers.
 //  bridge - reads tools/bambu_bridge.py on the local network, which relays the
 //           printers' own LAN MQTT reports (works in LAN-only mode, exact data).
 
@@ -92,7 +92,7 @@ function signIn(src, ctx, cb) {
         return cb(m.setupError('Enter the emailed code'));
       }
       ctx.update({ secrets: { password: null } });
-      if (data.loginType === 'tfa') return cb(m.setupError('2FA on: use an access token'));
+      if (data.loginType === 'tfa') return cb(m.setupError('2FA/social: paste an access token'));
       cb(m.setupError(status === 400 || status === 401 ? 'Wrong email or password' : 'Sign-in failed'));
     });
 }
@@ -129,6 +129,7 @@ function cloudPrinter(src, d, now) {
     state: state,
     file: m.cleanFileName(d.task)
   });
+  p.deviceId = d.id;
   if (!d.online) {
     p.message = 'Printer is offline';
     return p;
@@ -183,12 +184,46 @@ function mergeCloudDevices(printDevices, bindDevices) {
       cur.online = d.dev_online !== false;
     }
     if (d.task_status) cur.status = d.task_status;
-    cur.task = d.task_name;
-    cur.start = d.start_time;
-    cur.prediction = d.prediction;
-    cur.progress = d.progress;
+    // Keep prior values when print returns nulls for an active local/SD job.
+    if (d.task_name) cur.task = d.task_name;
+    if (d.start_time) cur.start = d.start_time;
+    if (d.prediction != null && d.prediction !== '') cur.prediction = d.prediction;
+    if (d.progress != null && d.progress !== '') cur.progress = d.progress;
   });
   return order.map(function (id) { return byId[id]; });
+}
+
+// In-progress tasks keep endTime within ~1 minute of startTime (Bambu placeholder).
+function isActiveCloudTask(task) {
+  var start = Date.parse(task && task.startTime);
+  var end = Date.parse(task && task.endTime);
+  return isFinite(start) && isFinite(end) && (end - start) <= 60000;
+}
+
+function needsCloudJobDetails(d) {
+  if (!d || !d.online) return false;
+  var s = String(d.status || '').toUpperCase();
+  if (!/RUNNING|PRINTING|ACTIVE|PAUSE|PREPARE|SLICING|INIT/.test(s)) return false;
+  return !d.task || !d.start || d.prediction == null || d.prediction === '';
+}
+
+// Fill gaps from /user-service/my/tasks when /user/print has no job row.
+function applyCloudTasks(devices, hits) {
+  var activeByDev = {};
+  (hits || []).forEach(function (t) {
+    if (!t || !t.deviceId || activeByDev[t.deviceId] || !isActiveCloudTask(t)) return;
+    activeByDev[t.deviceId] = t;
+  });
+  (devices || []).forEach(function (d) {
+    var t = activeByDev[d.id];
+    if (!t) return;
+    if (!d.task && t.title) d.task = t.title;
+    if (!d.start && t.startTime) d.start = t.startTime;
+    if ((d.prediction == null || d.prediction === '') && t.costTime != null) {
+      d.prediction = t.costTime;
+    }
+  });
+  return devices;
 }
 
 function listDevices(src, token, ctx, cb) {
@@ -208,7 +243,17 @@ function listDevices(src, token, ctx, cb) {
       if (!printDevices && !bindDevices) {
         return cb(new Error('Bambu Cloud error ' + (status2 || status)));
       }
-      cb(null, mergeCloudDevices(printDevices, bindDevices));
+      var devices = mergeCloudDevices(printDevices, bindDevices);
+      var missing = devices.some(needsCloudJobDetails);
+      if (!missing) return cb(null, devices);
+
+      call(src, 'GET', '/v1/user-service/my/tasks?limit=20', null, token, function (err3, status3, data3) {
+        if (err3 || status3 === 401) {
+          // Details are best-effort; status from bind is still useful.
+          return cb(null, devices);
+        }
+        cb(null, applyCloudTasks(devices, (data3 && data3.hits) || []));
+      });
     });
   });
 }
@@ -246,6 +291,7 @@ function lanPrinter(src, d) {
     kind: m.KIND.bambu,
     stamp: m.num(d.updated) || 0
   });
+  p.deviceId = d.id;
   if (!d.online) {
     p.state = m.STATE.OFFLINE;
     p.message = d.error || 'Printer offline';
@@ -305,15 +351,47 @@ function fetchBridge(src, cb, ctx) {
   });
 }
 
+function controlBridge(src, deviceId, action, cb) {
+  if (!deviceId) return cb(new Error('Unknown printer'));
+  var token = src.secrets && src.secrets.token;
+  http.request({
+    method: 'POST',
+    url: m.baseUrl(src.host) + '/command',
+    headers: token ? { 'X-Bridge-Token': token, 'Content-Type': 'application/json' }
+      : { 'Content-Type': 'application/json' },
+    body: { id: deviceId, command: action }
+  }, function (err, res) {
+    if (err) return cb(err);
+    if (res.status === 401) return cb(m.setupError('Bridge token is wrong'));
+    if (res.status === 404) return cb(new Error('Printer not on bridge'));
+    if (res.status < 200 || res.status >= 300) {
+      var data = res.json() || {};
+      return cb(new Error(data.error || ('HTTP ' + res.status)));
+    }
+    cb(null);
+  });
+}
+
+function control(src, opts, action, cb) {
+  if (src.mode === 'bridge') {
+    return controlBridge(src, opts && opts.deviceId, action, cb);
+  }
+  // Cloud control needs MQTT, which the phone app can't open.
+  cb(new Error('Bambu pause/stop needs the LAN bridge'));
+}
+
 module.exports = {
   fetch: function (src, cb, ctx) {
     (src.mode === 'bridge' ? fetchBridge : fetchCloud)(src, cb, ctx);
   },
+  control: control,
   // Be gentle with Bambu's cloud; the local bridge can be polled freely.
   minInterval: function (src) {
     return src.mode === 'bridge' ? 0 : 60;
   },
   _cloudPrinter: cloudPrinter,
   _lanPrinter: lanPrinter,
-  _mergeCloudDevices: mergeCloudDevices
+  _mergeCloudDevices: mergeCloudDevices,
+  _applyCloudTasks: applyCloudTasks,
+  _isActiveCloudTask: isActiveCloudTask
 };

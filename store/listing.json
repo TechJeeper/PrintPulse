@@ -1,0 +1,7 @@
+{
+  "name": "PrintPulse",
+  "description": "Keep an eye on all your 3D printers from your Pebble. Add Klipper, Bambu Lab and Prusa printers from your phone, then see progress, time left, temperatures and layers at a glance, and get a buzz when a print finishes or needs you.",
+  "category": "tools",
+  "source": "https://github.com/TechJeeper/PrintPulse",
+  "website": "https://github.com/TechJeeper/PrintPulse"
+}

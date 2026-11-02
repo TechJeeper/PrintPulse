@@ -1,7 +1,7 @@
 {
   "name": "printpulse",
   "author": "caffeinegamer",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "keywords": ["pebble-app", "3d-printing", "klipper", "bambu", "prusa"],
   "private": true,
   "dependencies": {},
@@ -39,7 +39,8 @@
       "Theme",
       "VibeOnDone",
       "WakeOnDone",
-      "Interval"
+      "Interval",
+      "Action"
     ],
     "resources": {
       "media": [

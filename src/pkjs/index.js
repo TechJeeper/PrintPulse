@@ -4,6 +4,7 @@
 var keys = require('message_keys');
 var m = require('./model');
 var store = require('./store');
+var version = require('./version');
 var configPage = require('./config_page');
 
 var DRIVERS = {
@@ -23,11 +24,19 @@ var status = {};       // source id -> { ok, text, at, devices }
 var lastGood = {};     // source id -> { at, printers }
 var fresh = {};        // source id -> time of last successful fetch (ms)
 var lastSent = [];     // watch slot -> signature of what it holds
+var live = [];         // last published printers (keeps srcId/deviceId for actions)
+var updateInfo = null; // { version, url, message } when a newer release exists
 var pollTimer = null;
 var polling = false;
 var pollAgain = null;
+var acting = false;
 var queue = [];
 var sending = false;
+
+var ACTION_NAME = {};
+ACTION_NAME[m.ACTION.PAUSE] = 'pause';
+ACTION_NAME[m.ACTION.RESUME] = 'resume';
+ACTION_NAME[m.ACTION.STOP] = 'stop';
 
 // ---- AppMessage queue ----------------------------------------------------
 
@@ -179,6 +188,7 @@ function fetchSource(src, opts, cb) {
       printers.forEach(function (p) {
         if (!p.stamp) p.stamp = stamp;
         if (!p.uid) p.uid = m.hash(src.id);
+        p.srcId = src.id;
       });
       fresh[src.id] = Date.now();
       lastGood[src.id] = { at: stamp, printers: printers };
@@ -191,6 +201,8 @@ function fetchSource(src, opts, cb) {
       cb(good.printers.map(function (p) {
         var copy = m.printer(p);
         copy.flags |= m.FLAG.STALE;
+        copy.srcId = p.srcId || src.id;
+        copy.deviceId = p.deviceId;
         return copy;
       }));
       return;
@@ -221,6 +233,7 @@ function activeSources() {
 
 function publish(printers) {
   printers = printers.slice(0, m.MAX_PRINTERS);
+  live = printers;
   printers.forEach(function (p, i) {
     var dict = toDict(p, i, printers.length);
     var sig = signature(dict);
@@ -232,6 +245,41 @@ function publish(printers) {
   });
   lastSent.length = printers.length;
   send({ Cmd: m.CMD.SYNC_DONE, Count: printers.length });
+}
+
+function notice(text) {
+  send({ Cmd: m.CMD.NOTICE, Message: m.clip(text, m.TEXT_MAX) });
+}
+
+function handleAction(index, actionCode) {
+  var action = ACTION_NAME[actionCode];
+  if (!action) return;
+  if (acting) {
+    notice('Busy, try again');
+    return;
+  }
+  var p = live[index];
+  if (!p) {
+    notice('Printer gone');
+    return;
+  }
+  var src = p.srcId === 'demo' ? DEMO_SOURCE : findSource(p.srcId);
+  var driver = src && DRIVERS[src.type];
+  if (!driver || typeof driver.control !== 'function') {
+    notice("Can't control this printer");
+    return;
+  }
+  acting = true;
+  driver.control(src, { deviceId: p.deviceId }, action, function (err) {
+    acting = false;
+    if (err) {
+      notice(err.message || 'Action failed');
+      return;
+    }
+    notice(action === 'stop' ? 'Stopping' : action === 'pause' ? 'Paused' : 'Resumed');
+    lastSent = [];
+    poll({ manual: true, fresh: true });
+  });
 }
 
 function poll(opts) {
@@ -278,12 +326,25 @@ function schedule() {
 // ---- settings page -------------------------------------------------------
 
 function configUrl() {
-  var json = JSON.stringify(store.pageState(cfg, status)).replace(/</g, '\\u003c');
+  var json = JSON.stringify(store.pageState(cfg, status, updateInfo)).replace(/</g, '\\u003c');
   var returnTo = Pebble.platform === 'pypkjs' ? '$$$RETURN_TO$$$' : 'pebblejs://close#';
   var html = configPage
     .replace('"__PRINTPULSE_STATE__"', function () { return json; })
     .replace('__RETURN_TO__', function () { return returnTo; });
   return 'data:text/html;charset=utf-8,' + encodeURIComponent(html);
+}
+
+function checkForUpdate() {
+  version.check(function (info) {
+    updateInfo = info;
+    if (!info) return;
+    if (version.toastShown() === info.version) return;
+    version.markToast(info.version);
+    send({
+      Cmd: m.CMD.NOTICE,
+      Message: m.clip('Update ' + info.version + ' available', m.TEXT_MAX)
+    });
+  });
 }
 
 function parseResponse(response) {
@@ -314,12 +375,21 @@ Pebble.addEventListener('ready', function () {
   sendSettings();
   poll();
   schedule();
+  checkForUpdate();
 });
 
 Pebble.addEventListener('appmessage', function (e) {
   var payload = e.payload || {};
   var cmd = payload.Cmd !== undefined ? payload.Cmd : payload[keys.Cmd];
-  if (cmd === m.CMD.REFRESH) poll({ manual: true });
+  if (cmd === m.CMD.REFRESH) {
+    poll({ manual: true });
+    return;
+  }
+  if (cmd === m.CMD.ACTION) {
+    var index = payload.Index !== undefined ? payload.Index : payload[keys.Index];
+    var action = payload.Action !== undefined ? payload.Action : payload[keys.Action];
+    handleAction(index, action);
+  }
 });
 
 Pebble.addEventListener('showConfiguration', function () {
@@ -329,7 +399,12 @@ Pebble.addEventListener('showConfiguration', function () {
 
 Pebble.addEventListener('webviewclosed', function (e) {
   var page = e && e.response ? parseResponse(e.response) : null;
-  if (!page || !page.sources) return;
+  if (!page) return;
+  if (page.dismissVersion) {
+    version.dismiss(page.dismissVersion);
+    if (updateInfo && updateInfo.version === page.dismissVersion) updateInfo = null;
+  }
+  if (!page.sources) return;
   cfg = store.applyPage(cfg, page);
   store.save(cfg);
   var kept = {};

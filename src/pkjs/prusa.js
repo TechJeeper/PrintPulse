@@ -38,6 +38,21 @@ function get(src, path, cb) {
   http.getJson(opts, cb);
 }
 
+function req(src, method, path, body, cb) {
+  var opts = auth(src);
+  opts.method = method;
+  opts.url = m.baseUrl(src.host) + path;
+  if (body !== undefined) opts.body = body;
+  http.request(opts, function (err, res) {
+    if (err) return cb(err);
+    if (denied({ status: res.status })) {
+      return cb(m.setupError('Wrong password or key'));
+    }
+    if (res.status < 200 || res.status >= 300) return cb(http.httpError(res));
+    cb(null);
+  });
+}
+
 function denied(err) {
   return err && (err.status === 401 || err.status === 403);
 }
@@ -136,8 +151,44 @@ function fetch(src, cb) {
   });
 }
 
+function controlLegacy(src, action, cb) {
+  var command = action === 'stop' ? 'cancel' : action;
+  req(src, 'POST', '/api/job', { command: command }, cb);
+}
+
+function control(src, opts, action, cb) {
+  get(src, '/api/v1/status', function (err, st) {
+    if (err && err.status === 404) return controlLegacy(src, action, cb);
+    if (denied(err)) {
+      var s = src.secrets || {};
+      return cb(m.setupError(s.password || s.apiKey ? 'Wrong password' : 'Password needed'));
+    }
+    if (err) return cb(err);
+    var jobId = st && st.job ? st.job.id : null;
+    if (jobId === undefined || jobId === null) {
+      return get(src, '/api/v1/job', function (jobErr, job) {
+        if (jobErr && jobErr.status === 404) return controlLegacy(src, action, cb);
+        if (jobErr) return cb(jobErr);
+        if (!job || job.id === undefined || job.id === null) {
+          return cb(new Error('No active job'));
+        }
+        controlV1(src, job.id, action, cb);
+      });
+    }
+    controlV1(src, jobId, action, cb);
+  });
+}
+
+function controlV1(src, jobId, action, cb) {
+  if (action === 'stop') return req(src, 'DELETE', '/api/v1/job/' + jobId, undefined, cb);
+  if (action === 'pause') return req(src, 'PUT', '/api/v1/job/' + jobId + '/pause', undefined, cb);
+  if (action === 'resume') return req(src, 'PUT', '/api/v1/job/' + jobId + '/resume', undefined, cb);
+  cb(new Error('Unknown action'));
+}
+
 module.exports = {
   fetch: fetch,
+  control: control,
   minInterval: 0,
   _parseV1: parseV1
 };

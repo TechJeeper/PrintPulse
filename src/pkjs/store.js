@@ -113,7 +113,7 @@ function applyPage(cfg, page) {
   return { isNew: false, settings: withDefaults(page.settings), sources: sources };
 }
 
-function pageState(cfg, status) {
+function pageState(cfg, status, update) {
   return {
     settings: cfg.settings,
     sources: cfg.sources.map(function (s) {
@@ -132,7 +132,8 @@ function pageState(cfg, status) {
         has: { apiKey: !!secrets.apiKey, password: !!secrets.password, token: !!secrets.token }
       };
     }),
-    status: status
+    status: status,
+    update: update || null
   };
 }
 

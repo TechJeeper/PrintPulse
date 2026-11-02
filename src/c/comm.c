@@ -1,6 +1,8 @@
 #include "comm.h"
 #include "app.h"
 #include "model.h"
+#include "theme.h"
+#include "ui.h"
 
 static int32_t tuple_int(const Tuple *t) {
   if (t->type == TUPLE_INT) {
@@ -72,6 +74,14 @@ static void handle_settings(DictionaryIterator *it) {
   app_on_settings_changed();
 }
 
+static void handle_notice(DictionaryIterator *it) {
+  char text[48];
+  find_str(it, MESSAGE_KEY_Message, text, sizeof(text));
+  if (text[0]) {
+    ui_toast(text, PBL_IF_COLOR_ELSE(GColorPictonBlue, theme()->text));
+  }
+}
+
 static void inbox_received(DictionaryIterator *it, void *context) {
   switch (find_int(it, MESSAGE_KEY_Cmd, 0)) {
     case CMD_SYNC_BEGIN:
@@ -86,6 +96,9 @@ static void inbox_received(DictionaryIterator *it, void *context) {
       break;
     case CMD_SETTINGS:
       handle_settings(it);
+      break;
+    case CMD_NOTICE:
+      handle_notice(it);
       break;
   }
 }
@@ -113,4 +126,16 @@ void comm_request_refresh(void) {
   dict_write_int32(it, MESSAGE_KEY_Cmd, CMD_REFRESH);
   app_message_outbox_send();
   app_on_sync_begin();
+}
+
+void comm_send_action(int index, int action) {
+  DictionaryIterator *it;
+  if (app_message_outbox_begin(&it) != APP_MSG_OK) {
+    ui_toast("Phone not connected", PBL_IF_COLOR_ELSE(GColorDarkCandyAppleRed, theme()->text));
+    return;
+  }
+  dict_write_int32(it, MESSAGE_KEY_Cmd, CMD_ACTION);
+  dict_write_int32(it, MESSAGE_KEY_Index, index);
+  dict_write_int32(it, MESSAGE_KEY_Action, action);
+  app_message_outbox_send();
 }

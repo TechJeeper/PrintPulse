@@ -20,7 +20,8 @@ var STATE_LABEL = ['Waiting', 'Offline', 'Ready', 'Preparing', 'Printing', 'Paus
 
 var FLAG = { ESTIMATED: 1, STALE: 2 };
 
-var CMD = { SYNC_BEGIN: 1, PRINTER: 2, SYNC_DONE: 3, SETTINGS: 4, REFRESH: 5 };
+var CMD = { SYNC_BEGIN: 1, PRINTER: 2, SYNC_DONE: 3, SETTINGS: 4, REFRESH: 5, NOTICE: 6, ACTION: 7 };
+var ACTION = { PAUSE: 1, RESUME: 2, STOP: 3 };
 
 var TEMP_NONE = -999;
 var MAX_PRINTERS = 8;
@@ -142,6 +143,7 @@ module.exports = {
   STATE: STATE,
   FLAG: FLAG,
   CMD: CMD,
+  ACTION: ACTION,
   TEMP_NONE: TEMP_NONE,
   MAX_PRINTERS: MAX_PRINTERS,
   NAME_MAX: NAME_MAX,

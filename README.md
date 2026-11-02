@@ -11,7 +11,9 @@ glance, and get a buzz when a print finishes or needs you.
 - **One list for every printer**: a card per printer with its state, time left and a progress bar.
   The header sums it all up ("2 printing", "1 needs you").
 - **Detail view**: a progress ring, file name, time left, ETA, nozzle/bed temperatures, layers and
-  elapsed time. Press Up/Down to flip between printers.
+  elapsed time. Press Up/Down to flip between printers. Hold Select to pause, resume or stop a job
+  (pause and stop ask for confirmation). Bambu cloud is view-only for this — use the LAN bridge to
+  control Bambu printers.
 - **Alerts**: the watch buzzes and shows a banner when a print finishes, fails, is cancelled, pauses or
   needs attention.
 - **Check back when a print is due** (optional): PrintPulse opens briefly at the expected finish time,
@@ -86,8 +88,9 @@ API key instead.
 verification code, the watch will say so: open the settings again, type the code into the field that
 appears and save. Only the access token is kept on your phone, never your password; it lasts about
 3 months, after which the card asks you to sign in again.
-- *Two-factor login:* sign in at bambulab.com in a desktop browser, open the developer tools, copy
-  the value of the `token` cookie and paste it under "Two-factor login? Paste an access token".
+- *2FA or social login (Google, Apple, Facebook):* sign in at bambulab.com in a desktop browser,
+  open the developer tools, copy the value of the `token` cookie and paste it under
+  "2FA or social login? Paste an access token".
 - The cloud doesn't always report live progress. When it doesn't, PrintPulse estimates progress from the start
   time and the slicer's estimate and shows it with a `~` (for example `~64%`). This uses Bambu's
   unofficial cloud API, which Bambu may change at any time.
@@ -125,6 +128,25 @@ Pebble apps can't run in the background, so printers are checked while PrintPuls
 optional check at the expected finish time. That check gives up after three tries with nothing new,
 so a slipping estimate won't keep waking your watch.
 
+## Releases / version check
+
+Follow [`.deploysteps`](.deploysteps). Short version:
+
+```powershell
+./build.ps1 -Login                                          # once per machine
+./build.ps1 -Publish -ReleaseNotes "What changed for users"
+```
+
+That builds the `.pbw` and publishes to the Pebble appstore with
+[`store/listing.json`](store/listing.json) and [`store/screenshots/`](store/screenshots)
+(CloudPebble is not required). Then bump and push [`version.json`](version.json) on `main` so
+already-installed copies show the update banner.
+
+On launch, the phone side fetches `version.json`. If that version is newer than the installed app,
+the watch shows a one-time toast and Settings shows a dismissible banner. Dismissing remembers that
+version until a newer one appears. Keep `package.json`, `src/pkjs/version.js` (`APP_VERSION`), and
+`version.json` on the same NEW version when you ship.
+
 ## Development
 
 ```
@@ -136,12 +158,16 @@ src/c/            watch app (C)
   draw.* theme.* ui.*   drawing helpers, colours, header, toast
 src/pkjs/         phone side (JS)
   index.js        polling loop, message queue, settings page plumbing
+  version.js      GitHub version check + dismiss state
   klipper.js prusa.js bambu.js demo.js   one module per printer type
   http.js md5.js  XHR wrapper with HTTP digest auth (PrusaLink)
   store.js        settings and secrets in the phone's localStorage
 config/index.html settings page; wscript embeds it into the JS bundle at build time
+store/            appstore listing text + screenshots for `pebble publish`
+version.json      latest published version (checked by installed apps)
 tools/bambu_bridge.py   Bambu LAN bridge
-build-env/        container image used by build.ps1
+build-env/        container image used by build.ps1 (includes publish.py)
+.deploysteps      release checklist (bump → publish → GitHub)
 ```
 
 `./build.ps1 -Shell` opens a shell with the `pebble` tool. The emulator runs headless there, so use
